@@ -1,50 +1,38 @@
 [
     {
+        "id": -4,
+        "nombre": "1",
+        "categoria": "2",
+        "precio": "3"
+    },
+    {
+        "id": -3,
+        "nombre": "1",
+        "categoria": "2",
+        "precio": "3"
+    },
+    {
+        "id": -2,
+        "nombre": "1",
+        "categoria": "2",
+        "precio": "3"
+    },
+    {
+        "id": -1,
+        "nombre": "1",
+        "categoria": "2",
+        "precio": "3"
+    },
+    {
         "id": 1,
-        "nombre": "e",
+        "nombre": "a",
         "categoria": "e",
-        "precio": "1"
+        "precio": "i"
     },
     {
-        "id": 5,
-        "nombre": "b",
-        "categoria": "b",
-        "precio": "1"
-    },
-    {
-        "id": 6,
-        "nombre": "d",
-        "categoria": "d",
-        "precio": "1"
-    },
-    {
-        "id": 7,
-        "nombre": "c",
-        "categoria": "c",
-        "precio": "1"
-    },
-    {
-        "id": 8,
-        "nombre": "f",
-        "categoria": "f",
-        "precio": "1"
-    },
-    {
-        "id": 9,
-        "nombre": "l",
-        "categoria": "l",
-        "precio": "1"
-    },
-    {
-        "id": 10,
-        "nombre": "g",
-        "categoria": "g",
-        "precio": "1"
-    },
-    {
-        "id": 12,
-        "nombre": "f",
-        "categoria": "f",
-        "precio": "1"
+        "id": 2,
+        "nombre": "3",
+        "categoria": "4",
+        "precio": "5"
     }
 ]

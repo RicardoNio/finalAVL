@@ -9,7 +9,25 @@ from exceptions import (
 )
 
 class DatabaseManager:
+    """Gestor principal de la base de datos basada en un árbol AVL y persistencia en JSON.
+
+    Esta clase maneja la carga, escritura, actualización, búsqueda y eliminación
+    de registros, manteniendo la estructura en memoria sincronizada con un archivo físico.
+
+    Attributes:
+        tree (AVLTree): Instancia del árbol AVL utilizado para organizar los datos.
+        root (Node o None): Nodo raíz del árbol AVL en memoria.
+        file_path (str): Ruta del archivo JSON utilizado para la persistencia.
+    """
     def __init__(self, file_path):
+        """Inicializa el gestor de la base de datos.
+
+        Configura las estructuras de datos iniciales y arranca el proceso de carga 
+        para construir el árbol AVL desde el archivo de almacenamiento.
+
+        Args:
+            file_path (str): Ruta al archivo JSON donde se almacenan los datos.
+        """
         self.tree = AVLTree()
         self.root = None
         self.file_path = file_path
@@ -17,7 +35,15 @@ class DatabaseManager:
         self._load_initial_data()
 
     def _load_initial_data(self):
-        """Lee el JSON y reconstruye el árbol AVL en memoria con validaciones de integridad."""
+        """Lee el JSON y reconstruye el árbol AVL en memoria con validaciones de integridad.
+
+        Carga los registros en bruto utilizando el módulo de persistencia, valida su 
+        formato de manera estricta y los inserta secuencialmente en el árbol AVL.
+
+        Raises:
+            DatabaseCorruptionError: Si un elemento en el JSON no es un diccionario, 
+                si carece de la clave 'id', o si ocurre un fallo al leer los datos base.
+        """
         try:
             raw_data = persistence.load_all(self.file_path)
             for item in raw_data:
@@ -52,7 +78,12 @@ class DatabaseManager:
             )
 
     def _sync_to_disk(self):
-        """Extrae de manera ordenada los objetos del árbol y los vuelca en el archivo."""
+        """Extrae de manera ordenada los objetos del árbol y los vuelca en el archivo.
+
+        Utiliza un recorrido inorden del árbol AVL para obtener todos los registros 
+        ordenados numéricamente por su ID, los convierte a diccionarios estándar y 
+        sobrescribe el archivo JSON físico.
+        """
         all_records = []
         # Obtenemos todos los objetos Record ordenados mediante recorrido Inorden
         self.tree.inorder_list(self.root, all_records)
@@ -62,9 +93,19 @@ class DatabaseManager:
         persistence.save_all(self.file_path, json_ready_data)
 
     def save_record(self, obj):
-        """
-        Inserta un nuevo registro en la base de datos.
-        Lanza DuplicateKeyError si el ID ya existe.
+        """Inserta un nuevo registro en la base de datos.
+        
+        Lanza DuplicateKeyError si el ID ya existe. Efectúa comprobaciones de tipo 
+        y de existencia estructural antes de incluir el nuevo registro en el árbol AVL 
+        y luego sincroniza con el disco.
+
+        Args:
+            obj (dict): Diccionario que contiene la información del nuevo registro.
+
+        Raises:
+            ValidationError: Si 'obj' no es un diccionario, si no posee un 'id', o 
+                si el 'id' no es un número entero.
+            DuplicateKeyError: Lanza desde la lógica de inserción si el ID ya existe.
         """
         if not isinstance(obj, dict):
             raise ValidationError("Los datos del registro deben representarse como un diccionario.")
@@ -84,9 +125,17 @@ class DatabaseManager:
         self._sync_to_disk()
 
     def update_record(self, obj):
-        """
-        Modifica un registro existente.
-        Lanza KeyNotFoundError si el ID no existe.
+        """Modifica un registro existente.
+        
+        Lanza KeyNotFoundError si el ID no existe. Busca el nodo en el árbol, 
+        reemplaza sus atributos con el nuevo objeto provisto y actualiza el disco.
+
+        Args:
+            obj (dict): Diccionario con los datos a actualizar. Debe contener un 'id'.
+
+        Raises:
+            ValidationError: Si el diccionario no contiene la clave 'id'.
+            KeyNotFoundError: Si el 'id' no se logra encontrar dentro del árbol.
         """
         if 'id' not in obj or obj['id'] is None:
             raise ValidationError("Error de Integridad: Se requiere un 'id' para actualizar el registro.")
@@ -103,7 +152,20 @@ class DatabaseManager:
         self._sync_to_disk()
 
     def find_by_id(self, key):
-        """Búsqueda eficiente O(log n) que retorna un diccionario clásico."""
+        """Búsqueda eficiente O(log n) que retorna un diccionario clásico.
+
+        Navega rápidamente a través del árbol AVL apoyándose en el identificador entero.
+
+        Args:
+            key (int): El ID principal del registro objetivo.
+
+        Returns:
+            dict: El registro hallado convertido a un formato estándar de diccionario.
+
+        Raises:
+            ValidationError: Si el valor de 'key' no es de tipo numérico (entero).
+            KeyNotFoundError: Si la búsqueda no obtiene un resultado para el ID dado.
+        """
         if not isinstance(key, int):
             raise ValidationError("El ID de búsqueda debe ser un entero.")
             
@@ -114,9 +176,18 @@ class DatabaseManager:
         return node.value.to_dict()
 
     def find_by_criteria(self, field, value):
-        """
-        Búsqueda lineal O(n) que filtra coincidencias basadas en un campo y su valor.
-        Es insensible a mayúsculas/minúsculas para strings.
+        """Búsqueda lineal O(n) que filtra coincidencias basadas en un campo y su valor.
+        
+        Es insensible a mayúsculas/minúsculas para strings. Itera en orden sobre todos 
+        los registros disponibles verificando la existencia del campo y emparejando el valor.
+
+        Args:
+            field (str): Nombre del atributo o campo a evaluar.
+            value (Any): Valor específico buscado. Se convierte a string para la comparación.
+
+        Returns:
+            list[dict]: Lista que contiene todos los registros (diccionarios) 
+                que cumplen con el criterio dado.
         """
         all_records = []
         self.tree.inorder_list(self.root, all_records)
@@ -133,7 +204,17 @@ class DatabaseManager:
         return results
 
     def delete_record(self, key):
-        """Elimina un nodo usando la clave primaria y actualiza el archivo JSON."""
+        """Elimina un nodo usando la clave primaria y actualiza el archivo JSON.
+
+        Ejecuta el borrado balanceado dentro del árbol AVL y procede a la 
+        sincronización final con el archivo de persistencia en disco.
+
+        Args:
+            key (int): ID correspondiente al registro que desea eliminarse.
+
+        Raises:
+            ValidationError: Si la clave especificada no es un número entero.
+        """
         if not isinstance(key, int):
             raise ValidationError("El ID para eliminación debe ser un número entero.")
 
@@ -142,7 +223,15 @@ class DatabaseManager:
         self._sync_to_disk()
 
     def get_all_sorted(self):
-        """Devuelve todos los elementos ordenados ascendentemente según su clave."""
+        """Devuelve todos los elementos ordenados ascendentemente según su clave.
+
+        Recorre la integridad del árbol inorden y formatea los resultados a una 
+        estructura de datos primitiva en Python.
+
+        Returns:
+            list[dict]: Una lista que contiene todos los diccionarios almacenados 
+                en la base de datos, estructurados en orden numérico por su ID.
+        """
         all_records = []
         self.tree.inorder_list(self.root, all_records)
         return [record.to_dict() for record in all_records]

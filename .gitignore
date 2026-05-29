@@ -1,0 +1,25 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# --- Datos (Persistencia) ---
+data/*.json
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Sistema Operativo ---
+.DS_Store
+Thumbs.db
+
+# --- Reportes/Documentación ---
+*.log
+*.pdf
