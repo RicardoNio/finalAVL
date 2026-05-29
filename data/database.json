@@ -1,38 +1,3 @@
 [
-    {
-        "id": -4,
-        "nombre": "1",
-        "categoria": "2",
-        "precio": "3"
-    },
-    {
-        "id": -3,
-        "nombre": "1",
-        "categoria": "2",
-        "precio": "3"
-    },
-    {
-        "id": -2,
-        "nombre": "1",
-        "categoria": "2",
-        "precio": "3"
-    },
-    {
-        "id": -1,
-        "nombre": "1",
-        "categoria": "2",
-        "precio": "3"
-    },
-    {
-        "id": 1,
-        "nombre": "a",
-        "categoria": "e",
-        "precio": "i"
-    },
-    {
-        "id": 2,
-        "nombre": "3",
-        "categoria": "4",
-        "precio": "5"
-    }
+    
 ]
