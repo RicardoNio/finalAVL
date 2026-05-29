@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestor AVL — Base de Datos No Relacional</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0c10; --surface:#111318; --surface2:#181c22;
+    --border:#252933; --accent:#00e5a0; --accent2:#00b8ff;
+    --danger:#ff4d6a; --warn:#ffc947; --text:#e8eaf0; --muted:#5a6070;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+
+  /* HEADER */
+  header{display:flex;align-items:center;gap:16px;padding:18px 32px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#0e1117,#111820);position:sticky;top:0;z-index:100}
+  .logo-badge{width:38px;height:38px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#000;flex-shrink:0}
+  header h1{font-size:1.15rem;font-weight:700;letter-spacing:-.5px}
+  header span{font-size:.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+  .stat-chips{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .chip{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted)}
+  .chip b{color:var(--accent)}
+  .server-badge{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:.72rem}
+  .server-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:background .3s}
+  .server-dot.online{background:var(--accent);box-shadow:0 0 6px var(--accent)}
+  .server-dot.offline{background:var(--danger)}
+
+  /* LAYOUT */
+  .layout{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 73px)}
+  .sidebar{border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--surface);grid-row:1/-1}
+  .main-panel{display:flex;flex-direction:column}
+
+  /* TABS */
+  .tabs{display:flex;border-bottom:1px solid var(--border)}
+  .tab{flex:1;padding:12px 8px;font-size:.78rem;font-family:'JetBrains Mono',monospace;background:none;border:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.5px}
+  .tab:hover{color:var(--text);background:rgba(255,255,255,.02)}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+  /* FORMS */
+  .form-area{padding:20px;flex:1;overflow-y:auto}
+  .form-area h3{font-size:.8rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:16px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:5px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+  .field input,.field select{width:100%;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.85rem;transition:border-color .2s,box-shadow .2s}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,229,160,.1)}
+  .field input::placeholder{color:var(--muted)}
+  .btn{width:100%;padding:10px;border:none;border-radius:7px;cursor:pointer;font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;transition:all .2s;letter-spacing:.3px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:var(--accent);color:#000}
+  .btn-primary:hover:not(:disabled){background:#00ffb3;transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,229,160,.3)}
+  .btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text);margin-top:8px}
+  .btn-secondary:hover:not(:disabled){border-color:var(--accent2);color:var(--accent2)}
+  .btn-danger{background:var(--surface2);border:1px solid var(--danger);color:var(--danger);margin-top:8px}
+  .btn-danger:hover:not(:disabled){background:rgba(255,77,106,.1)}
+  .btn-sm{width:auto;padding:4px 10px;font-size:.75rem;margin-top:0}
+
+  /* RESULT CARD */
+  .result-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px;display:none}
+  .result-card.visible{display:block}
+  .result-card.error{border-color:var(--danger)}
+  .result-label{font-size:.68rem;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .kv{display:flex;gap:8px;font-size:.8rem;font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+  .kv .k{color:var(--muted)} .kv .v{color:var(--text)}
+
+  /* TOAST */
+  #toast{position:fixed;bottom:24px;right:24px;z-index:999;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:.82rem;min-width:240px;transform:translateY(80px) scale(.95);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;display:flex;align-items:center;gap:10px}
+  #toast.show{transform:translateY(0) scale(1);opacity:1}
+  #toast.success{border-color:var(--accent)} #toast.error{border-color:var(--danger)} #toast.warn{border-color:var(--warn)}
+  .toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .toast-dot.success{background:var(--accent)} .toast-dot.error{background:var(--danger)} .toast-dot.warn{background:var(--warn)}
+
+  /* LOG */
+  .log-panel{border-top:1px solid var(--border);background:#0b0d11;height:150px;overflow-y:auto;padding:10px 18px;font-family:'JetBrains Mono',monospace;font-size:.72rem;flex-shrink:0}
+  .log-entry{padding:2px 0;line-height:1.6}
+  .log-entry.ok{color:var(--accent)} .log-entry.err{color:var(--danger)} .log-entry.info{color:var(--accent2)} .log-entry.warn{color:var(--warn)}
+  .log-ts{color:var(--muted);margin-right:8px}
+
+  /* TABLE */
+  .table-panel{flex:1;padding:20px;overflow-y:auto}
+  .table-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .table-header h2{font-size:.9rem;font-weight:700}
+  .record-count{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-left:auto}
+  .search-bar{display:flex;gap:8px;margin-bottom:16px}
+  .search-bar input{flex:1;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.82rem}
+  .search-bar input:focus{outline:none;border-color:var(--accent2)}
+  .search-bar select{padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.82rem;cursor:pointer}
+  table{width:100%;border-collapse:collapse;font-size:.82rem}
+  th{text-align:left;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:1px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)}
+  td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+  tr:hover td{background:rgba(255,255,255,.025)}
+  .id-cell{font-family:'JetBrains Mono',monospace;color:var(--accent);font-weight:700}
+  .row-actions{display:flex;gap:6px}
+  .action-btn{padding:4px 10px;border-radius:5px;border:1px solid;font-size:.7rem;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s}
+  .edit-btn{border-color:var(--accent2);color:var(--accent2);background:transparent}
+  .edit-btn:hover{background:rgba(0,184,255,.1)}
+  .del-btn{border-color:var(--danger);color:var(--danger);background:transparent}
+  .del-btn:hover{background:rgba(255,77,106,.1)}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+  .empty-state .big{font-size:3rem;margin-bottom:10px;opacity:.4}
+
+  /* TREE */
+  .tree-section{border-top:1px solid var(--border);flex-shrink:0;padding:16px 20px;background:var(--surface)}
+  .tree-label{font-size:.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+  #treeCanvas{width:100%;height:220px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);display:block}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200}
+  .modal-overlay.open{display:flex;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:360px;animation:slideUp .25s cubic-bezier(.34,1.56,.64,1)}
+  @keyframes slideUp{from{transform:translateY(30px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+  .modal h3{font-size:1rem;font-weight:700;margin-bottom:12px}
+  .modal p{color:var(--muted);font-size:.85rem;line-height:1.6}
+  .modal-actions{display:flex;gap:8px;margin-top:18px}
+  .modal-actions .btn{flex:1;margin-top:0}
+
+  /* SPINNER */
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+  @media(max-width:760px){.layout{grid-template-columns:1fr}.sidebar{grid-row:auto;border-right:none;border-bottom:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">A</div>
+  <div>
+    <h1>Gestor AVL</h1>
+    <span>Base de Datos No Relacional · Árbol AVL</span>
+  </div>
+  <div class="stat-chips">
+    <div class="server-badge">
+      <div class="server-dot" id="serverDot"></div>
+      <span id="serverLabel" style="color:var(--muted)">conectando…</span>
+    </div>
+    <div class="chip">Registros: <b id="hdrCount">—</b></div>
+    <div class="chip">Altura árbol: <b id="hdrHeight">—</b></div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('insert')">+ Insertar</button>
+      <button class="tab" onclick="showTab('search')">⌕ Buscar</button>
+      <button class="tab" onclick="showTab('update')">✎ Editar</button>
+      <button class="tab" onclick="showTab('delete')">✕ Eliminar</button>
+    </div>
+
+    <!-- INSERT -->
+    <div class="form-area" id="tab-insert">
+      <h3>Nuevo Registro</h3>
+      <div class="field"><label>ID (entero único)</label><input id="ins-id" type="number" placeholder="101"></div>
+      <div class="field"><label>Nombre</label><input id="ins-nombre" type="text" placeholder="Laptop Pro"></div>
+      <div class="field"><label>Categoría</label><input id="ins-cat" type="text" placeholder="Electrónica"></div>
+      <div class="field"><label>Precio</label><input id="ins-precio" type="text" placeholder="$1299.99"></div>
+      <button class="btn btn-primary" id="btnInsert" onclick="insertRecord()">Guardar Registro</button>
+      <button class="btn btn-secondary" onclick="clearInsert()">Limpiar</button>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="form-area" id="tab-search" style="display:none">
+      <h3>Buscar por ID</h3>
+      <div class="field"><label>ID exacto</label><input id="srch-id" type="number" placeholder="101"></div>
+      <button class="btn btn-primary" onclick="searchById()">Buscar ID</button>
+      <div class="result-card" id="srch-result">
+        <div class="result-label">Resultado</div>
+        <div id="srch-content"></div>
+      </div>
+
+      <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:18px">
+        <h3>Buscar por Criterio</h3>
+        <div class="field">
+          <label>Campo</label>
+          <select id="srch-campo">
+            <option value="nombre">nombre</option>
+            <option value="categoria">categoria</option>
+            <option value="precio">precio</option>
+          </select>
+        </div>
+        <div class="field"><label>Valor</label><input id="srch-valor" type="text" placeholder="Electrónica"></div>
+        <button class="btn btn-secondary" onclick="searchByCriteria()">Buscar Criterio</button>
+        <div class="result-card" id="crit-result">
+          <div class="result-label">Resultados</div>
+          <div id="crit-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPDATE -->
+    <div class="form-area" id="tab-update" style="display:none">
+      <h3>Modificar Registro</h3>
+      <div class="field"><label>ID a modificar</label><input id="upd-id" type="number" placeholder="101"></div>
+      <button class="btn btn-secondary" onclick="loadForEdit()">Cargar datos actuales</button>
+      <div style="margin-top:14px">
+        <div class="field"><label>Nuevo Nombre</label><input id="upd-nombre" type="text" placeholder="Laptop Pro X"></div>
+        <div class="field"><label>Nueva Categoría</label><input id="upd-cat" type="text" placeholder="Electrónica"></div>
+        <div class="field"><label>Nuevo Precio</label><input id="upd-precio" type="text" placeholder="$1499.99"></div>
+      </div>
+      <button class="btn btn-primary" id="btnUpdate" onclick="updateRecord()">Actualizar Registro</button>
+    </div>
+
+    <!-- DELETE -->
+    <div class="form-area" id="tab-delete" style="display:none">
+      <h3>Eliminar Registro</h3>
+      <div class="field"><label>ID a eliminar</label><input id="del-id" type="number" placeholder="101"></div>
+      <button class="btn btn-danger" onclick="confirmDelete()">Eliminar Registro</button>
+    </div>
+  </aside>
+
+  <main class="main-panel">
+    <div class="table-panel">
+      <div class="table-header">
+        <h2>Todos los Registros</h2>
+        <span class="record-count" id="tableCount">cargando…</span>
+      </div>
+      <div class="search-bar">
+        <input id="filterInput" type="text" placeholder="Filtrar tabla…" oninput="filterTable()">
+        <select id="filterField" onchange="filterTable()">
+          <option value="all">Todos los campos</option>
+          <option value="nombre">Nombre</option>
+          <option value="categoria">Categoría</option>
+          <option value="precio">Precio</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Acciones</th></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="big">🌿</div>
+        <div>El árbol está vacío</div>
+        <div style="font-size:.75rem;margin-top:4px">Inserta tu primer registro desde el panel izquierdo</div>
+      </div>
+    </div>
+
+    <div class="tree-section">
+      <div class="tree-label">Visualización del Árbol AVL — estructura en memoria</div>
+      <canvas id="treeCanvas"></canvas>
+    </div>
+
+    <div class="log-panel" id="logPanel"></div>
+  </main>
+</div>
+
+<!-- MODAL DELETE -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>⚠ Confirmar Eliminación</h3>
+    <p>¿Eliminar el registro con ID <b id="delModalId" style="color:var(--danger)"></b>? Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="btnDelConfirm" onclick="executeDelete()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><span class="toast-dot" id="toastDot"></span><span id="toastMsg"></span></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   CONFIG — apunta al servidor Flask
+   ══════════════════════════════════════════════ */
+const API = "http://localhost:5000/api";
+
+/* ══════════════════════════════════════════════
+   ESTADO
+   ══════════════════════════════════════════════ */
+let allRecords  = [];
+let pendingDelId = null;
+let treeStruct   = null;
+let serverOnline = false;
+
+/* ══════════════════════════════════════════════
+   API HELPERS
+   ══════════════════════════════════════════════ */
+async function apiFetch(path, options = {}) {
+  const res  = await fetch(API + path, {
+    headers: { "Content-Type": "application/json" },
+    ...options
+  });
+  const json = await res.json();
+  return { status: res.status, ...json };
+}
+
+/* ══════════════════════════════════════════════
+   UI HELPERS
+   ══════════════════════════════════════════════ */
+function showTab(name) {
+  ["insert","search","update","delete"].forEach((t,i) => {
+    document.getElementById(`tab-${t}`).style.display = t===name ? "" : "none";
+    document.querySelectorAll(".tab")[i].classList.toggle("active", t===name);
+  });
+}
+
+let toastTimer;
+function showToast(msg, type="success") {
+  const el  = document.getElementById("toast");
+  const dot = document.getElementById("toastDot");
+  document.getElementById("toastMsg").textContent = msg;
+  el.className  = `show ${type}`;
+  dot.className = `toast-dot ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+function addLog(msg, type="info") {
+  const log = document.getElementById("logPanel");
+  const now = new Date();
+  const ts  = [now.getHours(),now.getMinutes(),now.getSeconds()]
+                .map(n=>String(n).padStart(2,"0")).join(":");
+  const div = document.createElement("div");
+  div.className = `log-entry ${type}`;
+  div.innerHTML = `<span class="log-ts">[${ts}]</span>${msg}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<span class="spinner"></span>Procesando…`
+    : btn.dataset.label || btn.textContent;
+}
+
+function setServerStatus(online) {
+  serverOnline = online;
+  document.getElementById("serverDot").className  = `server-dot ${online?"online":"offline"}`;
+  document.getElementById("serverLabel").textContent = online ? "Flask conectado" : "Sin conexión";
+  document.getElementById("serverLabel").style.color = online ? "var(--accent)" : "var(--danger)";
+}
+
+function clearInsert() {
+  ["ins-id","ins-nombre","ins-cat","ins-precio"].forEach(id=>document.getElementById(id).value="");
+}
+
+/* ══════════════════════════════════════════════
+   TABLA
+   ══════════════════════════════════════════════ */
+function renderTable(data) {
+  allRecords = data;
+  const tbody = document.getElementById("tableBody");
+  const empty = document.getElementById("emptyState");
+  const count = document.getElementById("tableCount");
+  document.getElementById("hdrCount").textContent  = data.length;
+  count.textContent = `${data.length} registro${data.length!==1?"s":""} · ordenados por ID (inorder AVL)`;
+  empty.style.display = data.length ? "none" : "";
+  tbody.innerHTML = "";
+  data.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="id-cell">#${r.id}</td>
+      <td>${r.nombre||"—"}</td>
+      <td><span style="background:rgba(0,184,255,.1);color:var(--accent2);padding:2px 8px;border-radius:4px;font-size:.75rem;font-family:'JetBrains Mono',monospace">${r.categoria||"—"}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.precio||"—"}</td>
+      <td><div class="row-actions">
+        <button class="action-btn edit-btn" onclick="quickEdit(${r.id})">editar</button>
+        <button class="action-btn del-btn"  onclick="confirmDelete(${r.id})">×</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterTable() {
+  const q = document.getElementById("filterInput").value.toLowerCase();
+  const f = document.getElementById("filterField").value;
+  if (!q) { renderTable(allRecords); return; }
+  const filtered = allRecords.filter(r =>
+    f==="all"
+      ? Object.values(r).some(v=>String(v).toLowerCase().includes(q))
+      : String(r[f]||"").toLowerCase().includes(q)
+  );
+  // renderiza sin sobreescribir allRecords
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+  filtered.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="id-cell">#${r.id}</td>
+      <td>${r.nombre||"—"}</td>
+      <td><span style="background:rgba(0,184,255,.1);color:var(--accent2);padding:2px 8px;border-radius:4px;font-size:.75rem;font-family:'JetBrains Mono',monospace">${r.categoria||"—"}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.precio||"—"}</td>
+      <td><div class="row-actions">
+        <button class="action-btn edit-btn" onclick="quickEdit(${r.id})">editar</button>
+        <button class="action-btn del-btn"  onclick="confirmDelete(${r.id})">×</button>
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   REFRESH — llama al servidor real
+   ══════════════════════════════════════════════ */
+async function refresh() {
+  try {
+    const [rec, tree] = await Promise.all([
+      apiFetch("/records"),
+      apiFetch("/tree")
+    ]);
+    if (rec.ok) renderTable(rec.data);
+    if (tree.ok) {
+      treeStruct = tree.data.structure;
+      document.getElementById("hdrHeight").textContent = tree.data.height;
+      drawTree();
+    }
+    setServerStatus(true);
+  } catch(e) {
+    setServerStatus(false);
+    addLog("No se pudo conectar con el servidor Flask. ¿Está corriendo app.py?", "err");
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CRUD → llaman al servidor Flask
+   ══════════════════════════════════════════════ */
+async function insertRecord() {
+  const id     = document.getElementById("ins-id").value.trim();
+  const nombre = document.getElementById("ins-nombre").value.trim();
+  const cat    = document.getElementById("ins-cat").value.trim();
+  const precio = document.getElementById("ins-precio").value.trim();
+  if (!id||!nombre||!cat||!precio) { showToast("Completa todos los campos","warn"); return; }
+
+  document.getElementById("btnInsert").dataset.label = "Guardar Registro";
+  setLoading("btnInsert", true);
+  try {
+    const res = await apiFetch("/records", {
+      method:"POST",
+      body: JSON.stringify({ id:Number(id), nombre, categoria:cat, precio })
+    });
+    if (res.ok) {
+      showToast(res.message, "success");
+      addLog(`INSERT id=${id} "${nombre}" → ${res.message}`, "ok");
+      clearInsert();
+      await refresh();
+    } else {
+      showToast(res.error, "error");
+      addLog(res.error, "err");
+    }
+  } catch(e) { showToast("Error de red","error"); addLog(e.message,"err"); }
+  finally    { setLoading("btnInsert", false); }
+}
+
+async function searchById() {
+  const id = document.getElementById("srch-id").value.trim();
+  const card    = document.getElementById("srch-result");
+  const content = document.getElementById("srch-content");
+  if (!id) { showToast("Ingresa un ID","warn"); return; }
+  try {
+    const res = await apiFetch(`/records/${id}`);
+    card.classList.add("visible");
+    if (res.ok) {
+      const r = res.data;
+      card.classList.remove("error");
+      content.innerHTML = `
+        <div class="kv"><span class="k">id:</span><b style="color:var(--accent)">${r.id}</b></div>
+        <div class="kv"><span class="k">nombre:</span><span class="v">${r.nombre||"—"}</span></div>
+        <div class="kv"><span class="k">categoria:</span><span class="v">${r.categoria||"—"}</span></div>
+        <div class="kv"><span class="k">precio:</span><b style="color:var(--accent)">${r.precio||"—"}</b></div>`;
+      addLog(`SEARCH id=${id} → encontrado`, "ok");
+    } else {
+      card.classList.add("error");
+      content.innerHTML = `<span style="color:var(--danger);font-size:.8rem">${res.error}</span>`;
+      addLog(res.error, "err");
+    }
+  } catch(e) { showToast("Error de red","error"); }
+}
+
+async function searchByCriteria() {
+  const campo  = document.getElementById("srch-campo").value;
+  const valor  = document.getElementById("srch-valor").value.trim();
+  const card    = document.getElementById("crit-result");
+  const content = document.getElementById("crit-content");
+  if (!valor) { showToast("Ingresa un valor","warn"); return; }
+  try {
+    const res = await apiFetch(`/search?field=${encodeURIComponent(campo)}&value=${encodeURIComponent(valor)}`);
+    card.classList.add("visible");
+    if (res.ok) {
+      const results = res.data;
+      if (results.length) {
+        card.classList.remove("error");
+        content.innerHTML = results.map(r=>
+          `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:.78rem;font-family:'JetBrains Mono',monospace">
+            <b style="color:var(--accent)">#${r.id}</b> · ${r.nombre||"—"} · ${r.categoria||"—"} · ${r.precio||"—"}
+          </div>`).join("");
+        showToast(`${results.length} resultado(s) encontrado(s)`,"success");
+        addLog(`CRITERIA ${campo}="${valor}" → ${results.length} resultado(s)`,"ok");
+      } else {
+        card.classList.add("error");
+        content.innerHTML = `<span style="color:var(--warn);font-size:.8rem">Sin coincidencias para "${valor}"</span>`;
+        addLog(`CRITERIA ${campo}="${valor}" → sin resultados`,"warn");
+      }
+    }
+  } catch(e) { showToast("Error de red","error"); }
+}
+
+async function loadForEdit() {
+  const id = document.getElementById("upd-id").value.trim();
+  if (!id) { showToast("Ingresa el ID primero","warn"); return; }
+  try {
+    const res = await apiFetch(`/records/${id}`);
+    if (res.ok) {
+      const r = res.data;
+      document.getElementById("upd-nombre").value = r.nombre||"";
+      document.getElementById("upd-cat").value    = r.categoria||"";
+      document.getElementById("upd-precio").value = r.precio||"";
+      showToast(`Datos de #${id} cargados`,"success");
+      addLog(`LOAD id=${id} para edición`,"info");
+    } else {
+      showToast(res.error,"error");
+      addLog(res.error,"err");
+    }
+  } catch(e) { showToast("Error de red","error"); }
+}
+
+async function updateRecord() {
+  const id     = document.getElementById("upd-id").value.trim();
+  const nombre = document.getElementById("upd-nombre").value.trim();
+  const cat    = document.getElementById("upd-cat").value.trim();
+  const precio = document.getElementById("upd-precio").value.trim();
+  if (!id||!nombre||!cat||!precio) { showToast("Completa todos los campos","warn"); return; }
+
+  document.getElementById("btnUpdate").dataset.label = "Actualizar Registro";
+  setLoading("btnUpdate", true);
+  try {
+    const res = await apiFetch(`/records/${id}`, {
+      method:"PUT",
+      body: JSON.stringify({ nombre, categoria:cat, precio })
+    });
+    if (res.ok) {
+      showToast(res.message,"success");
+      addLog(`UPDATE id=${id} → "${nombre}"`, "ok");
+      await refresh();
+    } else {
+      showToast(res.error,"error");
+      addLog(res.error,"err");
+    }
+  } catch(e) { showToast("Error de red","error"); }
+  finally    { setLoading("btnUpdate", false); }
+}
+
+function quickEdit(id) {
+  showTab("update");
+  document.getElementById("upd-id").value = id;
+  loadForEdit();
+}
+
+function confirmDelete(id) {
+  pendingDelId = id != null ? id : Number(document.getElementById("del-id").value.trim());
+  if (!pendingDelId) { showToast("Ingresa un ID","warn"); return; }
+  document.getElementById("delModalId").textContent = pendingDelId;
+  document.getElementById("deleteModal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("deleteModal").classList.remove("open");
+  pendingDelId = null;
+}
+
+async function executeDelete() {
+  if (!pendingDelId) return;
+  document.getElementById("btnDelConfirm").dataset.label = "Eliminar";
+  setLoading("btnDelConfirm", true);
+  try {
+    const res = await apiFetch(`/records/${pendingDelId}`, { method:"DELETE" });
+    if (res.ok) {
+      showToast(res.message,"success");
+      addLog(`DELETE id=${pendingDelId}`, "warn");
+      closeModal();
+      await refresh();
+    } else {
+      showToast(res.error,"error");
+      addLog(res.error,"err");
+      closeModal();
+    }
+  } catch(e) { showToast("Error de red","error"); closeModal(); }
+  finally    { setLoading("btnDelConfirm", false); }
+}
+
+/* ══════════════════════════════════════════════
+   ÁRBOL CANVAS
+   ══════════════════════════════════════════════ */
+function drawTree() {
+  const canvas = document.getElementById("treeCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth  || 600;
+  const H   = canvas.offsetHeight || 220;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,W,H);
+
+  if (!treeStruct) {
+    ctx.font = "13px JetBrains Mono"; ctx.fillStyle = "#5a6070";
+    ctx.textAlign = "center"; ctx.fillText("árbol vacío", W/2, H/2);
+    return;
+  }
+
+  const R = 20, VGAP = 52;
+  const positions = new Map();
+
+  function sw(n) { return n ? sw(n.left)+sw(n.right)+1 : 0; }
+
+  function layout(node, x, y, spread) {
+    if (!node) return;
+    positions.set(node.key, {x, y});
+    layout(node.left,  x-spread, y+VGAP, spread/2);
+    layout(node.right, x+spread, y+VGAP, spread/2);
+  }
+  layout(treeStruct, W/2, 30, W/4);
+
+  function edges(node) {
+    if (!node) return;
+    const p = positions.get(node.key);
+    [node.left, node.right].forEach(child => {
+      if (child) {
+        const c = positions.get(child.key);
+        ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(c.x,c.y);
+        ctx.strokeStyle = "#252933"; ctx.lineWidth = 1.5; ctx.stroke();
+        edges(child);
+      }
+    });
+  }
+  edges(treeStruct);
+
+  function nodes(node) {
+    if (!node) return;
+    const {x,y} = positions.get(node.key);
+    const b = node.balance;
+    const col = b>1||b<-1 ? "#ff4d6a" : b===0 ? "#00e5a0" : "#00b8ff";
+
+    ctx.beginPath(); ctx.arc(x,y,R+4,0,Math.PI*2);
+    ctx.fillStyle = col+"18"; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2);
+    ctx.fillStyle = "#1a2535"; ctx.fill();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.font = "bold 11px JetBrains Mono"; ctx.fillStyle = "#e8eaf0";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(node.key, x, y);
+
+    ctx.font = "9px JetBrains Mono"; ctx.fillStyle = col;
+    ctx.textBaseline = "top"; ctx.fillText(`b:${b}`, x, y+R+2);
+
+    nodes(node.left); nodes(node.right);
+  }
+  nodes(treeStruct);
+}
+
+/* ══════════════════════════════════════════════
+   INIT
+   ══════════════════════════════════════════════ */
+document.getElementById("deleteModal").addEventListener("click", e => { if(e.target===e.currentTarget) closeModal(); });
+window.addEventListener("resize", drawTree);
+
+addLog("Iniciando conexión con el servidor Flask en localhost:5000…", "info");
+refresh();
+// Refresca cada 5 s para mantener sincronía
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
