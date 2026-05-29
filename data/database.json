@@ -1,3 +1,32 @@
 [
-    
+    {
+        "id": 2,
+        "nombre": "b",
+        "categoria": "b",
+        "precio": "1"
+    },
+    {
+        "id": 3,
+        "nombre": "d",
+        "categoria": "d",
+        "precio": "20"
+    },
+    {
+        "id": 4,
+        "nombre": "e",
+        "categoria": "e",
+        "precio": "90"
+    },
+    {
+        "id": 5,
+        "nombre": "a",
+        "categoria": "a",
+        "precio": "1"
+    },
+    {
+        "id": 10,
+        "nombre": "c",
+        "categoria": "c",
+        "precio": "50"
+    }
 ]
